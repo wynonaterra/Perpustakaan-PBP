@@ -1,17 +1,15 @@
-const express = require('express');
-const router = express.Router();
 const pool = require('../../config/database');
 
-router.get('/', async (req, res, next) => {
+const getKatalogBuku = async (req, res, next) => {
   try {
     const { rows } = await pool.query('SELECT * FROM buku ORDER BY id_buku DESC');
     res.json({
-      message: 'Berhasil masuk ke catalog pengguna.',
+      message: 'Berhasil masuk ke halaman katalog pengguna.',
       data: rows,
     });
   } catch (err) {
     next(err);
   }
-});
+};
 
-module.exports = router;
+module.exports = { getKatalogBuku };
