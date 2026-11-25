@@ -16,4 +16,10 @@ router.use('/admin/dashboard', verifyToken, authorizeRoles('admin'), dashboardRo
 // 6. Pengguna Katalog
 router.use('/pengguna/katalog', verifyToken, authorizeRoles('anggota'), katalogRoutes);
 
+// Kembali
+router.use('/kembali', verifyToken, kembaliRoutes);
+
+// Denda
+router.use('/denda', verifyToken, dendaRoutes);
+
 module.exports = router;
