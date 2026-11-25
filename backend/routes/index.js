@@ -3,23 +3,28 @@ const router = express.Router();
 const verifyToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 
+// Import semua module routes
 const authRoutes = require('../modules/auth/auth.routes');
 const dashboardRoutes = require('../modules/dashboard/dashboard.routes');
+const bukuRoutes = require('../modules/buku/buku.routes');
 const katalogRoutes = require('../modules/katalog/katalog.routes');
+const kembaliRoutes = require('../modules/kembali/kembali.routes');
+const dendaRoutes = require('../modules/denda/denda.routes');
 
-// 1, 2, 4, 5. Auth Routes
+// 1, 2, 4, 5. Auth Routes (Fafa)
 router.use('/auth', authRoutes);
 
-// 3. Admin Dashboard
+// 3. Admin Dashboard (Fafa)
 router.use('/admin/dashboard', verifyToken, authorizeRoles('admin'), dashboardRoutes);
 
-// 6. Pengguna Katalog
+// Admin Manajemen Buku (Ifa)
+router.use('/admin/buku', verifyToken, authorizeRoles('admin'), bukuRoutes);
+
+// 6. Anggota Katalog Buku (Ifa)
 router.use('/pengguna/katalog', verifyToken, authorizeRoles('anggota'), katalogRoutes);
 
-// Kembali
+// Pengembalian & Denda (Audel)
 router.use('/kembali', verifyToken, kembaliRoutes);
-
-// Denda
 router.use('/denda', verifyToken, dendaRoutes);
 
 module.exports = router;
