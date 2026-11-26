@@ -7,6 +7,8 @@ const authRoutes = require('../modules/auth/auth.routes');
 const dashboardRoutes = require('../modules/dashboard/dashboard.routes');
 const katalogRoutes = require('../modules/katalog/katalog.routes');
 
+const pinjamRoutes = require("../modules/pinjam/pinjam.routes");
+
 // 1, 2, 4, 5. Auth Routes
 router.use('/auth', authRoutes);
 
@@ -21,5 +23,8 @@ router.use('/kembali', verifyToken, kembaliRoutes);
 
 // Denda
 router.use('/denda', verifyToken, dendaRoutes);
+
+// 7. Peminjaman
+router.use('/peminjaman', verifyToken, authorizeRoles('anggota'), pinjamRoutes);
 
 module.exports = router;
