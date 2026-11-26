@@ -17,11 +17,11 @@ const bookingRoutes = require('../modules/room-bookings/booking.routes');
 const pinjamRoutes = require("../modules/pinjam/pinjam.routes");
 
 // 1, 2, 4, 5. Auth Routes (Fafa)
-
 router.use('/auth', authRoutes);
 
 // 3. Admin Dashboard (Fafa)
 router.use('/admin/dashboard', verifyToken, authorizeRoles('admin'), dashboardRoutes);
+router.use('/admin/anggota', verifyToken, authorizeRoles('admin'), anggotaRoutes);
 
 // Admin Manajemen Buku (Ifa)
 router.use('/admin/buku', verifyToken, authorizeRoles('admin'), bukuRoutes);
