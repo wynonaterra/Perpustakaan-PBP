@@ -16,8 +16,6 @@ const bookingRoutes = require('../modules/room-bookings/booking.routes');
 
 const pinjamRoutes = require("../modules/pinjam/pinjam.routes");
 
-// 1, 2, 4, 5. Auth Routes
-
 // 1, 2, 4, 5. Auth Routes (Fafa)
 
 router.use('/auth', authRoutes);
@@ -35,7 +33,7 @@ router.use('/pengguna/katalog', verifyToken, authorizeRoles('anggota'), katalogR
 router.use('/kembali', verifyToken, kembaliRoutes);
 router.use('/denda', verifyToken, dendaRoutes);
 
-// 7. Peminjaman
+// 7. Peminjaman (Wynona)
 router.use('/peminjaman', verifyToken, authorizeRoles('anggota'), pinjamRoutes);
 
 // Ruangan (Nadya)
