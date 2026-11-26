@@ -79,10 +79,10 @@ const login = async (req, res, next) => {
 // 3. TAMBAH ADMIN BARU (Hanya bisa diakses Admin yang login + ADMIN_SECRET_KEY)
 const createAdmin = async (req, res, next) => {
   try {
-    const { nama, email, kata_sandi, admin_key } = req.body;
+    const { nama, email, kata_sandi, alamat, no_telepon, admin_key } = req.body;
 
     if (!nama || !email || !kata_sandi || !admin_key) {
-      return res.status(400).json({ message: 'Semua field dan Admin Secret Key wajib diisi.' });
+      return res.status(400).json({ message: 'Nama, email, kata sandi, dan Admin Secret Key wajib diisi.' });
     }
 
     if (admin_key !== process.env.ADMIN_SECRET_KEY) {
@@ -93,30 +93,18 @@ const createAdmin = async (req, res, next) => {
     if (exists) return res.status(409).json({ message: 'Email sudah terdaftar.' });
 
     const hashedPassword = await bcrypt.hash(kata_sandi, 10);
-    const data = await authModel.registerAdmin({ nama, email, hashedPassword });
+    const data = await authModel.registerAdmin({
+      nama,
+      email,
+      hashedPassword,
+      alamat,
+      no_telepon,
+    });
 
     res.status(201).json({
       message: `Akun admin ${data.nama} berhasil dibuat oleh ${req.user.email}.`,
       data,
     });
-  } catch (err) {
-    next(err);
-  }
-};
-
-const getProfile = async (req, res, next) => {
-  try {
-    const data = await authModel.getProfileById(req.user.id_pengguna);
-    res.json({ data });
-  } catch (err) {
-    next(err);
-  }
-};
-
-const listAdmins = async (req, res, next) => {
-  try {
-    const data = await authModel.getAllAdmins();
-    res.json({ data });
   } catch (err) {
     next(err);
   }
