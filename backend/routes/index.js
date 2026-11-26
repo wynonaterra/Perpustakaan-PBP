@@ -25,7 +25,7 @@ router.use('/admin/dashboard', verifyToken, authorizeRoles('admin'), dashboardRo
 // ADMIN MANAJEMEN BUKU (IFA)
 router.use('/admin/buku', verifyToken, authorizeRoles('admin'), bukuRoutes);
 // ANGGOTA KATALOG BUKU 
-router.use('/pengguna/katalog', verifyToken, authorizeRoles('anggota'), katalogRoutes);
+router.use('/katalog', verifyToken, authorizeRoles('anggota'), katalogRoutes);
 
 // PEMINJAMAN (WYN)
 router.use('/pinjam', pinjamRoutes);
