@@ -1,167 +1,216 @@
-const pool = require('../../config/database');
+const pool = require('../../config/db');
 
-// Ambil semua buku beserta nama kategori (mendukung pencarian & filter kategori)
+// Ambil semua buku beserta kategori
 const getAllBuku = async ({ search, id_kategori }) => {
-  let query = `
-    SELECT b.*, k.nama_kategori
-    FROM buku b
-    LEFT JOIN kategori k ON b.id_kategori = k.id_kategori
-    WHERE 1=1
-  `;
   const params = [];
+  const conditions = [];
 
   if (search) {
     params.push(`%${search}%`);
-    query += ` AND (b.judul ILIKE $${params.length} OR b.penulis ILIKE $${params.length} OR b.isbn ILIKE $${params.length})`;
+    conditions.push(`(b.judul ILIKE $${params.length} OR b.penulis ILIKE $${params.length} OR b.isbn ILIKE $${params.length})`);
   }
 
   if (id_kategori) {
     params.push(id_kategori);
-    query += ` AND b.id_kategori = $${params.length}`;
+    conditions.push(`b.id_kategori = $${params.length}`);
   }
 
-  query += ` ORDER BY b.id_buku DESC`;
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const { rows } = await pool.query(query, params);
-  return rows;
-};
-
-// Ambil 1 buku berdasarkan ID
-const getBukuById = async (id_buku) => {
   const query = `
     SELECT b.*, k.nama_kategori
     FROM buku b
     LEFT JOIN kategori k ON b.id_kategori = k.id_kategori
-    WHERE b.id_buku = $1
+    ${whereClause}
+    ORDER BY b.id_buku DESC
   `;
-  const { rows } = await pool.query(query, [id_buku]);
-  return rows[0];
+  const result = await pool.query(query, params);
+  return result.rows;
 };
 
-// Tambah buku baru (stok_tersedia otomatis mengikuti stok_total)
+// Ambil detail 1 buku + daftar eksemplarnya
+const getBukuById = async (id_buku) => {
+  const bukuRes = await pool.query(
+    `SELECT b.*, k.nama_kategori
+     FROM buku b
+     LEFT JOIN kategori k ON b.id_kategori = k.id_kategori
+     WHERE b.id_buku = $1`,
+    [id_buku]
+  );
+
+  if (bukuRes.rows.length === 0) return null;
+
+  const eksemplarRes = await pool.query(
+    `SELECT id_eksemplar, nomor_urut, status
+     FROM eksemplar_buku
+     WHERE id_buku = $1
+     ORDER BY nomor_urut ASC`,
+    [id_buku]
+  );
+
+  return {
+    ...bukuRes.rows[0],
+    eksemplar: eksemplarRes.rows,
+  };
+};
+
+// Tambah buku baru + auto-generate eksemplar (ISBN + nomor urut)
 const createBuku = async (data) => {
-  const {
-    id_kategori,
-    isbn,
-    judul,
-    penulis,
-    penerbit,
-    tahun_terbit,
-    deskripsi,
-    gambar_sampul,
-    stok_total,
-  } = data;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  const stok = Number(stok_total) || 0;
+    const stokTotal = Number(data.stok_total) || 0;
+    const stokTersedia = data.stok_tersedia !== undefined ? Number(data.stok_tersedia) : stokTotal;
 
-  const query = `
-    INSERT INTO buku (
-      id_kategori, isbn, judul, penulis, penerbit,
-      tahun_terbit, deskripsi, gambar_sampul, stok_total, stok_tersedia
-    )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
-    RETURNING *
-  `;
-  const values = [
-    id_kategori || null,
-    isbn || null,
-    judul,
-    penulis,
-    penerbit || null,
-    tahun_terbit ? Number(tahun_terbit) : null,
-    deskripsi || null,
-    gambar_sampul || null,
-    stok,
-  ];
-
-  const { rows } = await pool.query(query, values);
-  return rows[0];
-};
-
-// Update buku & hitung ulang stok_tersedia secara aman
-const updateBuku = async (id_buku, data) => {
-  const existing = await getBukuById(id_buku);
-  if (!existing) return null;
-
-  const {
-    id_kategori,
-    isbn,
-    judul,
-    penulis,
-    penerbit,
-    tahun_terbit,
-    deskripsi,
-    gambar_sampul,
-    stok_total,
-  } = data;
-
-  // Hitung jumlah buku yang sedang dipinjam/dialokasikan agar stok_tersedia tetap sinkron
-  const sedangDipinjam = existing.stok_total - existing.stok_tersedia;
-  const newStokTotal = stok_total !== undefined ? Number(stok_total) : existing.stok_total;
-
-  if (newStokTotal < sedangDipinjam) {
-    const err = new Error(
-      `Stok total tidak boleh kurang dari jumlah buku yang sedang dipinjam (${sedangDipinjam} eksemplar).`
+    const bukuRes = await client.query(
+      `INSERT INTO buku (
+        id_kategori, isbn, judul, penulis, penerbit, tahun_terbit,
+        deskripsi, gambar_sampul, stok_total, stok_tersedia
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *`,
+      [
+        data.id_kategori || null,
+        data.isbn,
+        data.judul,
+        data.penulis,
+        data.penerbit || null,
+        data.tahun_terbit || null,
+        data.deskripsi || null,
+        data.gambar_sampul || null,
+        stokTotal,
+        stokTersedia,
+      ]
     );
-    err.statusCode = 400;
+
+    const newBuku = bukuRes.rows[0];
+    const generatedEksemplar = [];
+
+    for (let i = 1; i <= stokTotal; i++) {
+      const idEksemplar = `${newBuku.isbn}${i}`;
+      const eksRes = await client.query(
+        `INSERT INTO eksemplar_buku (id_eksemplar, id_buku, nomor_urut, status)
+         VALUES ($1, $2, $3, 'tersedia')
+         RETURNING *`,
+        [idEksemplar, newBuku.id_buku, i]
+      );
+      generatedEksemplar.push(eksRes.rows[0]);
+    }
+
+    await client.query('COMMIT');
+    return { ...newBuku, eksemplar: generatedEksemplar };
+  } catch (err) {
+    await client.query('ROLLBACK');
     throw err;
+  } finally {
+    client.release();
   }
-
-  const newStokTersedia = newStokTotal - sedangDipinjam;
-
-  const query = `
-    UPDATE buku
-    SET id_kategori = $1,
-        isbn = $2,
-        judul = $3,
-        penulis = $4,
-        penerbit = $5,
-        tahun_terbit = $6,
-        deskripsi = $7,
-        gambar_sampul = $8,
-        stok_total = $9,
-        stok_tersedia = $10
-    WHERE id_buku = $11
-    RETURNING *
-  `;
-
-  const values = [
-    id_kategori !== undefined ? (id_kategori || null) : existing.id_kategori,
-    isbn !== undefined ? (isbn || null) : existing.isbn,
-    judul || existing.judul,
-    penulis || existing.penulis,
-    penerbit !== undefined ? (penerbit || null) : existing.penerbit,
-    tahun_terbit !== undefined ? (tahun_terbit ? Number(tahun_terbit) : null) : existing.tahun_terbit,
-    deskripsi !== undefined ? (deskripsi || null) : existing.deskripsi,
-    gambar_sampul !== undefined ? (gambar_sampul || null) : existing.gambar_sampul,
-    newStokTotal,
-    newStokTersedia,
-    id_buku,
-  ];
-
-  const { rows } = await pool.query(query, values);
-  return rows[0];
 };
 
-// Hapus buku
+// Update buku + generate eksemplar tambahan jika stok_total bertambah
+const updateBuku = async (id_buku, data) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const oldRes = await client.query('SELECT * FROM buku WHERE id_buku = $1', [id_buku]);
+    if (oldRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    const oldBuku = oldRes.rows[0];
+    const newStokTotal = data.stok_total !== undefined ? Number(data.stok_total) : oldBuku.stok_total;
+
+    if (newStokTotal < oldBuku.stok_total) {
+      throw new Error('Stok total tidak boleh dikurangi di bawah jumlah eksemplar yang sudah terdaftar.');
+    }
+
+    const selisihStok = newStokTotal - oldBuku.stok_total;
+    const newStokTersedia = oldBuku.stok_tersedia + selisihStok;
+
+    const updateRes = await client.query(
+      `UPDATE buku
+       SET id_kategori = $1,
+           isbn = $2,
+           judul = $3,
+           penulis = $4,
+           penerbit = $5,
+           tahun_terbit = $6,
+           deskripsi = $7,
+           gambar_sampul = $8,
+           stok_total = $9,
+           stok_tersedia = $10
+       WHERE id_buku = $11
+       RETURNING *`,
+      [
+        data.id_kategori !== undefined ? data.id_kategori : oldBuku.id_kategori,
+        data.isbn || oldBuku.isbn,
+        data.judul || oldBuku.judul,
+        data.penulis || oldBuku.penulis,
+        data.penerbit !== undefined ? data.penerbit : oldBuku.penerbit,
+        data.tahun_terbit !== undefined ? data.tahun_terbit : oldBuku.tahun_terbit,
+        data.deskripsi !== undefined ? data.deskripsi : oldBuku.deskripsi,
+        data.gambar_sampul !== undefined ? data.gambar_sampul : oldBuku.gambar_sampul,
+        newStokTotal,
+        newStokTersedia,
+        id_buku,
+      ]
+    );
+
+    const updatedBuku = updateRes.rows[0];
+
+    // Cari nomor_urut terakhir agar tidak bentrok
+    const maxUrutRes = await client.query(
+      'SELECT COALESCE(MAX(nomor_urut), 0) AS max_urut FROM eksemplar_buku WHERE id_buku = $1',
+      [id_buku]
+    );
+    let currentUrut = Number(maxUrutRes.rows[0].max_urut);
+
+    for (let i = 0; i < selisihStok; i++) {
+      currentUrut += 1;
+      const idEksemplar = `${updatedBuku.isbn}${currentUrut}`;
+      await client.query(
+        `INSERT INTO eksemplar_buku (id_eksemplar, id_buku, nomor_urut, status)
+         VALUES ($1, $2, $3, 'tersedia')`,
+        [idEksemplar, id_buku, currentUrut]
+      );
+    }
+
+    const eksRes = await client.query(
+      'SELECT id_eksemplar, nomor_urut, status FROM eksemplar_buku WHERE id_buku = $1 ORDER BY nomor_urut ASC',
+      [id_buku]
+    );
+
+    await client.query('COMMIT');
+    return { ...updatedBuku, eksemplar: eksRes.rows };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
+// Hapus buku (eksemplar otomatis ikut terhapus karena ON DELETE CASCADE)
 const deleteBuku = async (id_buku) => {
-  const query = 'DELETE FROM buku WHERE id_buku = $1 RETURNING *';
-  const { rows } = await pool.query(query, [id_buku]);
-  return rows[0];
+  const result = await pool.query('DELETE FROM buku WHERE id_buku = $1 RETURNING *', [id_buku]);
+  return result.rows[0];
 };
 
-// === KATEGORI HELPER ===
+// CRUD Kategori
 const getAllKategori = async () => {
-  const { rows } = await pool.query('SELECT * FROM kategori ORDER BY nama_kategori ASC');
-  return rows;
+  const result = await pool.query('SELECT * FROM kategori ORDER BY nama_kategori ASC');
+  return result.rows;
 };
 
 const createKategori = async ({ nama_kategori, deskripsi }) => {
-  const { rows } = await pool.query(
+  const result = await pool.query(
     'INSERT INTO kategori (nama_kategori, deskripsi) VALUES ($1, $2) RETURNING *',
     [nama_kategori, deskripsi || null]
   );
-  return rows[0];
+  return result.rows[0];
 };
 
 module.exports = {
