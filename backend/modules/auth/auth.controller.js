@@ -15,53 +15,8 @@ const createToken = (user) => {
   );
 };
 
-// 1. Admin Register
-const registerAdmin = async (req, res, next) => {
-  try {
-    const { nama, email, kata_sandi, admin_key } = req.body;
-    if (!nama || !email || !kata_sandi) {
-      return res.status(400).json({ message: 'Nama, email, dan kata sandi wajib diisi.' });
-    }
-    if (admin_key !== process.env.ADMIN_SECRET_KEY) {
-      return res.status(403).json({ message: 'Kode rahasia admin salah.' });
-    }
-
-    const exists = await authModel.findUserByEmail(email);
-    if (exists) return res.status(409).json({ message: 'Email sudah terdaftar.' });
-
-    const hashedPassword = await bcrypt.hash(kata_sandi, 10);
-    const data = await authModel.registerAdmin({ nama, email, hashedPassword });
-    res.status(201).json({ message: 'Registrasi admin berhasil.', data });
-  } catch (err) {
-    next(err);
-  }
-};
-
-// 2. Admin Login
-const loginAdmin = async (req, res, next) => {
-  try {
-    const { email, kata_sandi } = req.body;
-    const user = await authModel.findUserByEmail(email);
-
-    if (!user || user.peran !== 'admin') {
-      return res.status(401).json({ message: 'Akun admin tidak ditemukan.' });
-    }
-    const valid = await bcrypt.compare(kata_sandi, user.kata_sandi);
-    if (!valid) return res.status(401).json({ message: 'Kata sandi salah.' });
-
-    const token = createToken(user);
-    res.json({
-      message: 'Login admin berhasil.',
-      token,
-      user: { id_pengguna: user.id_pengguna, nama: user.nama, email: user.email, peran: user.peran },
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-
-// 4. Pengguna (Anggota) Register
-const registerPengguna = async (req, res, next) => {
+// 1. REGISTER PUBLIK (Otomatis sebagai 'anggota')
+const register = async (req, res, next) => {
   try {
     const { nama, email, kata_sandi, alamat, no_telepon } = req.body;
     if (!nama || !email || !kata_sandi) {
@@ -73,39 +28,77 @@ const registerPengguna = async (req, res, next) => {
 
     const hashedPassword = await bcrypt.hash(kata_sandi, 10);
     const data = await authModel.registerAnggota({ nama, email, hashedPassword, alamat, no_telepon });
-    res.status(201).json({ message: 'Registrasi pengguna berhasil.', data });
+
+    res.status(201).json({
+      message: 'Registrasi berhasil. Silakan login.',
+      data,
+    });
   } catch (err) {
     next(err);
   }
 };
 
-// 5. Pengguna (Anggota) Login
-const loginPengguna = async (req, res, next) => {
+// 2. LOGIN UNIVERSAL (Otomatis cek peran dari database)
+const login = async (req, res, next) => {
   try {
     const { email, kata_sandi } = req.body;
-    const user = await authModel.findUserByEmail(email);
-
-    if (!user || user.peran !== 'anggota') {
-      return res.status(401).json({ message: 'Akun pengguna tidak ditemukan.' });
+    if (!email || !kata_sandi) {
+      return res.status(400).json({ message: 'Email dan kata sandi wajib diisi.' });
     }
-    const valid = await bcrypt.compare(kata_sandi, user.kata_sandi);
-    if (!valid) return res.status(401).json({ message: 'Kata sandi salah.' });
 
-    if (user.status_anggota === 'nonaktif') {
+    const user = await authModel.findUserByEmail(email);
+    if (!user) {
+      return res.status(401).json({ message: 'Email atau kata sandi salah.' });
+    }
+
+    const valid = await bcrypt.compare(kata_sandi, user.kata_sandi);
+    if (!valid) {
+      return res.status(401).json({ message: 'Email atau kata sandi salah.' });
+    }
+
+    if (user.peran === 'anggota' && user.status_anggota === 'nonaktif') {
       return res.status(403).json({ message: 'Status keanggotaan Anda nonaktif.' });
     }
 
     const token = createToken(user);
     res.json({
-      message: 'Login pengguna berhasil.',
+      message: 'Login berhasil.',
       token,
       user: {
         id_pengguna: user.id_pengguna,
-        id_anggota: user.id_anggota,
+        id_anggota: user.id_anggota || null,
         nama: user.nama,
         email: user.email,
         peran: user.peran,
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 3. TAMBAH ADMIN BARU (Hanya bisa diakses Admin yang login + ADMIN_SECRET_KEY)
+const createAdmin = async (req, res, next) => {
+  try {
+    const { nama, email, kata_sandi, admin_key } = req.body;
+
+    if (!nama || !email || !kata_sandi || !admin_key) {
+      return res.status(400).json({ message: 'Semua field dan Admin Secret Key wajib diisi.' });
+    }
+
+    if (admin_key !== process.env.ADMIN_SECRET_KEY) {
+      return res.status(403).json({ message: 'Admin Secret Key tidak valid.' });
+    }
+
+    const exists = await authModel.findUserByEmail(email);
+    if (exists) return res.status(409).json({ message: 'Email sudah terdaftar.' });
+
+    const hashedPassword = await bcrypt.hash(kata_sandi, 10);
+    const data = await authModel.registerAdmin({ nama, email, hashedPassword });
+
+    res.status(201).json({
+      message: `Akun admin ${data.nama} berhasil dibuat oleh ${req.user.email}.`,
+      data,
     });
   } catch (err) {
     next(err);
@@ -121,4 +114,4 @@ const getProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { registerAdmin, loginAdmin, registerPengguna, loginPengguna, getProfile };
+module.exports = { register, login, createAdmin, getProfile };
