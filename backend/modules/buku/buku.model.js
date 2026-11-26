@@ -1,4 +1,4 @@
-const pool = require('../../config/db');
+const pool = require('../../config/database');
 
 // Ambil semua buku beserta kategori
 const getAllBuku = async ({ search, id_kategori }) => {

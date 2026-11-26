@@ -8,6 +8,5 @@ router.get("/", authMiddleware, pinjamController.getAll);
 router.get("/:id", authMiddleware, pinjamController.getById);
 router.post("/", authMiddleware, pinjamController.create);
 router.put("/:id", authMiddleware, pinjamController.update);
-router.delete("/:id", authMiddleware, pinjamController.remove);
 
 module.exports = router;
