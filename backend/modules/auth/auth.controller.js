@@ -6,7 +6,6 @@ const createToken = (user) => {
   return jwt.sign(
     {
       id_pengguna: user.id_pengguna,
-      id_anggota: user.id_anggota || null,
       email: user.email,
       peran: user.peran,
     },
@@ -56,8 +55,8 @@ const login = async (req, res, next) => {
       return res.status(401).json({ message: 'Email atau kata sandi salah.' });
     }
 
-    if (user.peran === 'anggota' && user.status_anggota === 'nonaktif') {
-      return res.status(403).json({ message: 'Status keanggotaan Anda nonaktif.' });
+    if (user.status === 'nonaktif') {
+      return res.status(403).json({ message: 'Akun Anda berstatus nonaktif.' });
     }
 
     const token = createToken(user);
@@ -66,7 +65,7 @@ const login = async (req, res, next) => {
       token,
       user: {
         id_pengguna: user.id_pengguna,
-        id_anggota: user.id_anggota || null,
+        nomor_anggota: user.nomor_anggota || null,
         nama: user.nama,
         email: user.email,
         peran: user.peran,
@@ -80,10 +79,10 @@ const login = async (req, res, next) => {
 // 3. TAMBAH ADMIN BARU (Hanya bisa diakses Admin yang login + ADMIN_SECRET_KEY)
 const createAdmin = async (req, res, next) => {
   try {
-    const { nama, email, kata_sandi, admin_key } = req.body;
+    const { nama, email, kata_sandi, alamat, no_telepon, admin_key } = req.body;
 
     if (!nama || !email || !kata_sandi || !admin_key) {
-      return res.status(400).json({ message: 'Semua field dan Admin Secret Key wajib diisi.' });
+      return res.status(400).json({ message: 'Nama, email, kata sandi, dan Admin Secret Key wajib diisi.' });
     }
 
     if (admin_key !== process.env.ADMIN_SECRET_KEY) {
@@ -94,7 +93,13 @@ const createAdmin = async (req, res, next) => {
     if (exists) return res.status(409).json({ message: 'Email sudah terdaftar.' });
 
     const hashedPassword = await bcrypt.hash(kata_sandi, 10);
-    const data = await authModel.registerAdmin({ nama, email, hashedPassword });
+    const data = await authModel.registerAdmin({
+      nama,
+      email,
+      hashedPassword,
+      alamat,
+      no_telepon,
+    });
 
     res.status(201).json({
       message: `Akun admin ${data.nama} berhasil dibuat oleh ${req.user.email}.`,
@@ -105,13 +110,4 @@ const createAdmin = async (req, res, next) => {
   }
 };
 
-const getProfile = async (req, res, next) => {
-  try {
-    const data = await authModel.getProfileById(req.user.id_pengguna);
-    res.json({ data });
-  } catch (err) {
-    next(err);
-  }
-};
-
-module.exports = { register, login, createAdmin, getProfile };
+module.exports = { register, login, createAdmin, getProfile, listAdmins };

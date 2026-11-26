@@ -6,7 +6,11 @@ const authorizeRoles = require('../../middleware/roleMiddleware');
 
 router.post('/register', authController.register);
 router.post('/login', authController.login);
+
+// Khusus Admin
 router.post('/admin/create', verifyToken, authorizeRoles('admin'), authController.createAdmin);
+router.get('/admin/list', verifyToken, authorizeRoles('admin'), authController.listAdmins);
+
 router.get('/profile', verifyToken, authController.getProfile);
 
 module.exports = router;
