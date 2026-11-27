@@ -2,109 +2,123 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const authModel = require('./auth.model');
 
+// =========================================================
+// CREATE JWT TOKEN
+// =========================================================
 const createToken = (user) => {
   return jwt.sign(
     {
       id_pengguna: user.id_pengguna,
-      id_anggota: user.id_anggota || null,
       email: user.email,
       peran: user.peran,
     },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN }
+    {
+      expiresIn: process.env.JWT_EXPIRES_IN,
+    }
   );
 };
 
-// 1. Admin Register
-const registerAdmin = async (req, res, next) => {
+// =========================================================
+// REGISTER ANGGOTA
+// =========================================================
+const register = async (req, res, next) => {
   try {
-    const { nama, email, kata_sandi, admin_key } = req.body;
+    const {
+      nama,
+      email,
+      kata_sandi,
+      alamat,
+      no_telepon,
+    } = req.body;
+
     if (!nama || !email || !kata_sandi) {
-      return res.status(400).json({ message: 'Nama, email, dan kata sandi wajib diisi.' });
-    }
-    if (admin_key !== process.env.ADMIN_SECRET_KEY) {
-      return res.status(403).json({ message: 'Kode rahasia admin salah.' });
+      return res.status(400).json({
+        message: 'Nama, email, dan kata sandi wajib diisi.',
+      });
     }
 
     const exists = await authModel.findUserByEmail(email);
-    if (exists) return res.status(409).json({ message: 'Email sudah terdaftar.' });
+
+    if (exists) {
+      return res.status(409).json({
+        message: 'Email sudah terdaftar.',
+      });
+    }
 
     const hashedPassword = await bcrypt.hash(kata_sandi, 10);
-    const data = await authModel.registerAdmin({ nama, email, hashedPassword });
-    res.status(201).json({ message: 'Registrasi admin berhasil.', data });
-  } catch (err) {
-    next(err);
-  }
-};
 
-// 2. Admin Login
-const loginAdmin = async (req, res, next) => {
-  try {
-    const { email, kata_sandi } = req.body;
-    const user = await authModel.findUserByEmail(email);
+    const data = await authModel.registerAnggota({
+      nama,
+      email,
+      hashedPassword,
+      alamat,
+      no_telepon,
+    });
 
-    if (!user || user.peran !== 'admin') {
-      return res.status(401).json({ message: 'Akun admin tidak ditemukan.' });
-    }
-    const valid = await bcrypt.compare(kata_sandi, user.kata_sandi);
-    if (!valid) return res.status(401).json({ message: 'Kata sandi salah.' });
-
-    const token = createToken(user);
-    res.json({
-      message: 'Login admin berhasil.',
-      token,
-      user: { id_pengguna: user.id_pengguna, nama: user.nama, email: user.email, peran: user.peran },
+    res.status(201).json({
+      message: 'Registrasi berhasil. Silakan login.',
+      data,
     });
   } catch (err) {
     next(err);
   }
 };
 
-// 4. Pengguna (Anggota) Register
-const registerPengguna = async (req, res, next) => {
+// =========================================================
+// LOGIN UNIVERSAL
+// Admin dan anggota login melalui endpoint yang sama
+// =========================================================
+const login = async (req, res, next) => {
   try {
-    const { nama, email, kata_sandi, alamat, no_telepon } = req.body;
-    if (!nama || !email || !kata_sandi) {
-      return res.status(400).json({ message: 'Nama, email, dan kata sandi wajib diisi.' });
+    const {
+      email,
+      kata_sandi,
+    } = req.body;
+
+    if (!email || !kata_sandi) {
+      return res.status(400).json({
+        message: 'Email dan kata sandi wajib diisi.',
+      });
     }
 
-    const exists = await authModel.findUserByEmail(email);
-    if (exists) return res.status(409).json({ message: 'Email sudah terdaftar.' });
-
-    const hashedPassword = await bcrypt.hash(kata_sandi, 10);
-    const data = await authModel.registerAnggota({ nama, email, hashedPassword, alamat, no_telepon });
-    res.status(201).json({ message: 'Registrasi pengguna berhasil.', data });
-  } catch (err) {
-    next(err);
-  }
-};
-
-// 5. Pengguna (Anggota) Login
-const loginPengguna = async (req, res, next) => {
-  try {
-    const { email, kata_sandi } = req.body;
     const user = await authModel.findUserByEmail(email);
 
-    if (!user || user.peran !== 'anggota') {
-      return res.status(401).json({ message: 'Akun pengguna tidak ditemukan.' });
+    if (!user) {
+      return res.status(401).json({
+        message: 'Email atau kata sandi salah.',
+      });
     }
-    const valid = await bcrypt.compare(kata_sandi, user.kata_sandi);
-    if (!valid) return res.status(401).json({ message: 'Kata sandi salah.' });
 
-    if (user.status_anggota === 'nonaktif') {
-      return res.status(403).json({ message: 'Status keanggotaan Anda nonaktif.' });
+    const valid = await bcrypt.compare(
+      kata_sandi,
+      user.kata_sandi
+    );
+
+    if (!valid) {
+      return res.status(401).json({
+        message: 'Email atau kata sandi salah.',
+      });
+    }
+
+    if (user.status === 'nonaktif') {
+      return res.status(403).json({
+        message: 'Akun Anda berstatus nonaktif.',
+      });
     }
 
     const token = createToken(user);
+
     res.json({
-      message: 'Login pengguna berhasil.',
+      message: 'Login berhasil.',
       token,
       user: {
         id_pengguna: user.id_pengguna,
-        id_anggota: user.id_anggota,
+        nomor_anggota: user.nomor_anggota || null,
         nama: user.nama,
         email: user.email,
         peran: user.peran,
+        status: user.status,
       },
     });
   } catch (err) {
@@ -112,13 +126,106 @@ const loginPengguna = async (req, res, next) => {
   }
 };
 
-const getProfile = async (req, res, next) => {
+// =========================================================
+// TAMBAH ADMIN
+// Hanya admin yang sudah login
+// =========================================================
+const createAdmin = async (req, res, next) => {
   try {
-    const data = await authModel.getProfileById(req.user.id_pengguna);
-    res.json({ data });
+    const {
+      nama,
+      email,
+      kata_sandi,
+      alamat,
+      no_telepon,
+      admin_key,
+    } = req.body;
+
+    if (!nama || !email || !kata_sandi || !admin_key) {
+      return res.status(400).json({
+        message:
+          'Nama, email, kata sandi, dan Admin Secret Key wajib diisi.',
+      });
+    }
+
+    if (admin_key !== process.env.ADMIN_SECRET_KEY) {
+      return res.status(403).json({
+        message: 'Admin Secret Key tidak valid.',
+      });
+    }
+
+    const exists = await authModel.findUserByEmail(email);
+
+    if (exists) {
+      return res.status(409).json({
+        message: 'Email sudah terdaftar.',
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(kata_sandi, 10);
+
+    const data = await authModel.registerAdmin({
+      nama,
+      email,
+      hashedPassword,
+      alamat,
+      no_telepon,
+    });
+
+    res.status(201).json({
+      message: `Akun admin ${data.nama} berhasil dibuat.`,
+      data,
+    });
   } catch (err) {
     next(err);
   }
 };
 
-module.exports = { registerAdmin, loginAdmin, registerPengguna, loginPengguna, getProfile };
+// =========================================================
+// GET PROFILE USER YANG SEDANG LOGIN
+// =========================================================
+const getProfile = async (req, res, next) => {
+  try {
+    const user = await authModel.getUserById(
+      req.user.id_pengguna
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: 'Data pengguna tidak ditemukan.',
+      });
+    }
+
+    res.json({
+      message: 'Data profile berhasil diambil.',
+      data: user,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// =========================================================
+// GET SEMUA ADMIN
+// Hanya admin
+// =========================================================
+const listAdmins = async (req, res, next) => {
+  try {
+    const admins = await authModel.getAllAdmins();
+
+    res.json({
+      message: 'Data admin berhasil diambil.',
+      data: admins,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  register,
+  login,
+  createAdmin,
+  getProfile,
+  listAdmins,
+};

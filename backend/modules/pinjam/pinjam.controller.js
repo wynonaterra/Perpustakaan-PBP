@@ -1,6 +1,5 @@
 const pinjamModel = require("./pinjam.model");
 
-
 // =========================================================
 // HELPER ID USER
 // =========================================================
@@ -8,27 +7,19 @@ const getUserId = (req) => {
     return req.user?.id_pengguna || req.user?.id;
 };
 
-
 // =========================================================
 // GET SEMUA PEMINJAMAN
 // =========================================================
 const getAll = async (req, res) => {
-
     try {
-
         const userId = getUserId(req);
         const role = req.user?.peran || req.user?.role;
 
-
         let data;
 
-
         if (role === "admin") {
-
             data = await pinjamModel.getAllPeminjaman();
-
         } else {
-
             if (!userId) {
                 return res.status(401).json({
                     success: false,
@@ -39,14 +30,12 @@ const getAll = async (req, res) => {
             data = await pinjamModel.getPeminjamanByUser(userId);
         }
 
-
         res.status(200).json({
             success: true,
             data
         });
 
     } catch (error) {
-
         console.error(error);
 
         res.status(500).json({
@@ -56,14 +45,11 @@ const getAll = async (req, res) => {
     }
 };
 
-
 // =========================================================
 // GET DETAIL PEMINJAMAN
 // =========================================================
 const getById = async (req, res) => {
-
     try {
-
         const id = Number(req.params.id);
 
         if (!Number.isInteger(id)) {
@@ -73,9 +59,7 @@ const getById = async (req, res) => {
             });
         }
 
-
         const data = await pinjamModel.getPeminjamanById(id);
-
 
         if (!data) {
             return res.status(404).json({
@@ -84,18 +68,16 @@ const getById = async (req, res) => {
             });
         }
 
-
         const role = req.user?.peran || req.user?.role;
 
+        // Pengguna dengan role anggota hanya boleh
+        // melihat peminjaman miliknya sendiri
         if (role !== "admin") {
-
             const userId = getUserId(req);
 
-            const anggota = await pinjamModel.getAnggotaByUserId(userId);
-
             if (
-                !anggota ||
-                Number(anggota.id_anggota) !== Number(data.id_anggota)
+                !userId ||
+                Number(userId) !== Number(data.id_pengguna)
             ) {
                 return res.status(403).json({
                     success: false,
@@ -104,14 +86,12 @@ const getById = async (req, res) => {
             }
         }
 
-
         res.status(200).json({
             success: true,
             data
         });
 
     } catch (error) {
-
         console.error(error);
 
         res.status(500).json({
@@ -121,72 +101,63 @@ const getById = async (req, res) => {
     }
 };
 
-
 // =========================================================
 // CREATE PEMINJAMAN
 // =========================================================
-const create = async (req, res) => {
-
+const create = async (req, res, next) => {
     try {
-
-        const role = req.user?.peran || req.user?.role;
-        const userId = getUserId(req);
-
-
-        let idAnggota = Number(req.body.id_anggota);
-
-
-        // -------------------------------------------------
-        // Kalau anggota biasa, pakai akun sendiri
-        // -------------------------------------------------
-        if (role === "anggota") {
-
-            const anggota = await pinjamModel.getAnggotaByUserId(userId);
-
-
-            if (!anggota) {
-                return res.status(404).json({
-                    success: false,
-                    message: "Data anggota tidak ditemukan."
-                });
-            }
-
-
-            if (anggota.status !== "aktif") {
-                return res.status(403).json({
-                    success: false,
-                    message: "Akun anggota tidak aktif."
-                });
-            }
-
-
-            idAnggota = Number(anggota.id_anggota);
-        }
-
-
-        if (!Number.isInteger(idAnggota)) {
-
-            return res.status(400).json({
-                success: false,
-                message: "id_anggota wajib diisi."
-            });
-        }
-
-
         const {
             jenis_peminjaman,
             catatan,
             daftar_buku
         } = req.body;
 
+        // Ambil ID pengguna langsung dari JWT
+        const userId = getUserId(req);
+        const { peran } = req.user;
 
+        // Hanya pengguna dengan role anggota
+        // yang boleh membuat peminjaman
+        if (peran !== "anggota") {
+            return res.status(403).json({
+                success: false,
+                message: "Hanya anggota yang dapat membuat peminjaman."
+            });
+        }
+
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: "ID pengguna tidak ditemukan."
+            });
+        }
+
+        // Validasi jenis peminjaman
+        if (
+            jenis_peminjaman &&
+            !["online", "offline"].includes(jenis_peminjaman)
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Jenis peminjaman harus online atau offline."
+            });
+        }
+
+        // Validasi daftar buku
+        if (!Array.isArray(daftar_buku) || daftar_buku.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Minimal satu buku harus dipilih."
+            });
+        }
+
+        // Buat peminjaman
         const data = await pinjamModel.createPeminjaman({
-            idAnggota,
+            idPengguna: userId,
             jenisPeminjaman: jenis_peminjaman || "online",
             catatan,
             daftarBuku: daftar_buku
         });
-
 
         res.status(201).json({
             success: true,
@@ -195,7 +166,6 @@ const create = async (req, res) => {
         });
 
     } catch (error) {
-
         console.error(error);
 
         res.status(400).json({
@@ -204,15 +174,12 @@ const create = async (req, res) => {
         });
     }
 };
-
 
 // =========================================================
 // UPDATE PEMINJAMAN
 // =========================================================
 const update = async (req, res) => {
-
     try {
-
         const id = Number(req.params.id);
 
         if (!Number.isInteger(id)) {
@@ -222,9 +189,7 @@ const update = async (req, res) => {
             });
         }
 
-
         const dataLama = await pinjamModel.getPeminjamanById(id);
-
 
         if (!dataLama) {
             return res.status(404).json({
@@ -233,138 +198,154 @@ const update = async (req, res) => {
             });
         }
 
-
         const role = req.user?.peran || req.user?.role;
+        const userId = getUserId(req);
 
-
-        if (role !== "admin") {
-
-            const userId = getUserId(req);
-
-            const anggota = await pinjamModel.getAnggotaByUserId(userId);
-
+        // =====================================================
+        // CEK KEPEMILIKAN UNTUK ANGGOTA
+        // =====================================================
+        if (role === "anggota") {
 
             if (
-                !anggota ||
-                Number(anggota.id_anggota) !== Number(dataLama.id_anggota)
+                !userId ||
+                Number(userId) !== Number(dataLama.id_pengguna)
             ) {
                 return res.status(403).json({
                     success: false,
                     message: "Anda tidak memiliki akses ke peminjaman ini."
                 });
             }
+
+            // Anggota hanya boleh membatalkan peminjaman
+            const { status } = req.body;
+
+            if (status !== "dibatalkan") {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        "Anggota hanya dapat membatalkan peminjaman."
+                });
+            }
+
+            // Peminjaman yang sudah selesai tidak dapat dibatalkan
+            if (dataLama.status === "selesai") {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Peminjaman yang sudah selesai tidak dapat dibatalkan."
+                });
+            }
+
+            // Peminjaman yang sudah dibatalkan tidak perlu dibatalkan lagi
+            if (dataLama.status === "dibatalkan") {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Peminjaman sudah berstatus dibatalkan."
+                });
+            }
+
+            const data = await pinjamModel.updatePeminjaman(
+                id,
+                {
+                    status: "dibatalkan",
+                    catatan: req.body.catatan,
+                    batasPengambilan: undefined
+                }
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: "Peminjaman berhasil dibatalkan.",
+                data
+            });
         }
 
-
-        const {
-            status,
-            catatan,
-            batas_pengambilan
-        } = req.body;
-
-
-        const data = await pinjamModel.updatePeminjaman(
-            id,
-            {
+        // =====================================================
+        // ADMIN
+        // =====================================================
+        if (role === "admin") {
+            const {
                 status,
                 catatan,
-                batasPengambilan: batas_pengambilan
-            }
-        );
+                batas_pengambilan
+            } = req.body;
 
-
-        res.status(200).json({
-            success: true,
-            message: "Peminjaman berhasil diperbarui.",
-            data
-        });
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(400).json({
-            success: false,
-            message: error.message
-        });
-    }
-};
-
-
-// =========================================================
-// DELETE PEMINJAMAN
-// =========================================================
-const remove = async (req, res) => {
-
-    try {
-
-        const id = Number(req.params.id);
-
-        if (!Number.isInteger(id)) {
-            return res.status(400).json({
-                success: false,
-                message: "ID peminjaman tidak valid."
-            });
-        }
-
-
-        const dataLama = await pinjamModel.getPeminjamanById(id);
-
-
-        if (!dataLama) {
-            return res.status(404).json({
-                success: false,
-                message: "Peminjaman tidak ditemukan."
-            });
-        }
-
-
-        const role = req.user?.peran || req.user?.role;
-
-
-        if (role !== "admin") {
-
-            const userId = getUserId(req);
-
-            const anggota = await pinjamModel.getAnggotaByUserId(userId);
-
+            const statusValid = [
+                "menunggu",
+                "disetujui",
+                "siap_diambil",
+                "dipinjam",
+                "ditolak",
+                "dibatalkan",
+                "kedaluwarsa",
+                "selesai"
+            ];
 
             if (
-                !anggota ||
-                Number(anggota.id_anggota) !== Number(dataLama.id_anggota)
+                !status &&
+                catatan === undefined &&
+                batas_pengambilan === undefined
             ) {
-                return res.status(403).json({
+                return res.status(400).json({
                     success: false,
-                    message: "Anda tidak memiliki akses ke peminjaman ini."
+                    message: "Tidak ada data yang diperbarui."
                 });
             }
+
+            if (status && !statusValid.includes(status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Status peminjaman tidak valid."
+                });
+            }
+
+            // Peminjaman yang sudah selesai tidak boleh diubah lagi
+            if (dataLama.status === "selesai") {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Peminjaman yang sudah selesai tidak dapat diperbarui."
+                });
+            }
+
+            const data = await pinjamModel.updatePeminjaman(
+                id,
+                {
+                    status,
+                    catatan,
+                    batasPengambilan: batas_pengambilan
+                }
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: "Peminjaman berhasil diperbarui.",
+                data
+            });
         }
 
-
-        await pinjamModel.deletePeminjaman(id);
-
-
-        res.status(200).json({
-            success: true,
-            message: "Peminjaman berhasil dihapus."
+        // =====================================================
+        // ROLE TIDAK DIKENAL
+        // =====================================================
+        return res.status(403).json({
+            success: false,
+            message: "Anda tidak memiliki hak akses."
         });
 
     } catch (error) {
-
         console.error(error);
 
-        res.status(400).json({
+        return res.status(400).json({
             success: false,
             message: error.message
         });
     }
 };
-
 
 module.exports = {
     getAll,
     getById,
     create,
-    update,
-    remove
+    update
 };
