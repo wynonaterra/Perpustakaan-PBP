@@ -77,7 +77,7 @@ export default function Login() {
       <div className="auth-form-panel">
         <div className="auth-form-card">
           <div className="auth-form-header">
-            <h1>Selamat Datang Kembali!</h1>
+            <h1>Selamat Datang Kembali</h1>
             <p>Masukkan email dan kata sandi akun perpustakaan Anda.</p>
           </div>
 

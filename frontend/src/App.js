@@ -15,7 +15,7 @@ function App() {
         {/* Halaman Terproteksi (Dengan Sidebar & Navbar Dinamis) */}
         <Route element={<MainLayout />}>
           <Route path="/admin/dashboard" element={<Dashboard />} />
-            {/* HALAMAN LAINNYA MASUKIN SINIIIII */}
+            {/* HALAMAN LAINNYA MASUKIN SINIIII */}
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />

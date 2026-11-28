@@ -60,7 +60,7 @@ export default function AuthVisualPanel({ title, subtitle }) {
 
       {/* Footer Info */}
       <div className="auth-visual-footer">
-        <span>Sistem Informasi Perpustakaan Digital</span>
+        <span>Sistem Informasi Perpustakaan</span>
         <span>Katalog &amp; Reservasi Ruang</span>
       </div>
     </div>

@@ -84,7 +84,7 @@ export default function Register() {
       <div className="auth-form-panel">
         <div className="auth-form-card">
           <div className="auth-form-header">
-            <h1>Buat Akun Anggota</h1>
+            <h1>Buat Akun</h1>
             <p>Lengkapi data diri Anda untuk mendaftar sebagai anggota perpustakaan.</p>
           </div>
 
