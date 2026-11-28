@@ -1,0 +1,231 @@
+
+/* =================================
+   ROOM BOOKING
+================================= */
+
+.room-booking-page {
+  width: 100%;
+}
+
+.room-booking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.room-booking-header h1 {
+  font-size: 26px;
+  margin-bottom: 5px;
+  color: var(--color-walnut);
+}
+
+.room-booking-header p {
+  color: var(--color-walnut-muted);
+}
+
+.rb-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.rb-stat-grid .card span {
+  color: var(--color-walnut-muted);
+  font-size: 13px;
+}
+
+.rb-stat-grid .card h2 {
+  font-size: 26px;
+  color: var(--color-olive-dark);
+  margin-top: 8px;
+}
+
+/* Tabel Reservasi */
+
+.rb-table-section {
+  margin-top: 20px;
+}
+
+.rb-table-heading {
+  margin-bottom: 18px;
+}
+
+.rb-table-heading h3 {
+  font-size: 18px;
+  margin-bottom: 5px;
+  color: var(--color-walnut);
+}
+
+.rb-table-heading p {
+  color: var(--color-walnut-muted);
+}
+
+.rb-empty {
+  text-align: center;
+  padding: 25px !important;
+  color: var(--color-walnut-muted);
+}
+
+/* =================================
+   MODAL
+================================= */
+
+.rb-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(40, 35, 30, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.rb-modal {
+  background: var(--bg-surface);
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.rb-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+
+.rb-modal-header h2 {
+  color: var(--color-walnut);
+  font-size: 21px;
+  margin-bottom: 5px;
+}
+
+.rb-modal-header p {
+  color: var(--color-walnut-muted);
+  font-size: 13px;
+}
+
+.rb-close {
+  border: none;
+  background: transparent;
+  font-size: 25px;
+  cursor: pointer;
+  color: var(--color-walnut-muted);
+}
+
+/* =================================
+   FORM INPUT JAM RESERVASI
+================================= */
+
+.rb-time-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.rb-time-inputs > div {
+  min-width: 0;
+}
+
+.rb-time-label {
+  display: block;
+  font-size: 13px;
+  color: var(--color-walnut-muted);
+  margin-bottom: 7px;
+}
+
+.rb-time-inputs input {
+  width: 100%;
+}
+
+.rb-time-info {
+  font-size: 12px;
+  color: var(--color-walnut-muted);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.rb-time-error {
+  color: #BA1A1A;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 7px;
+  line-height: 1.5;
+}
+
+/* =================================
+   FORM DAN DETAIL
+================================= */
+
+.rb-form-actions,
+.rb-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.rb-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rb-detail-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.rb-detail-list span {
+  color: var(--color-walnut-muted);
+}
+
+.rb-detail-list strong {
+  text-align: right;
+  color: var(--color-walnut);
+}
+
+/* =================================
+   RESPONSIVE
+================================= */
+
+@media (max-width: 768px) {
+  .rb-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .room-booking-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 450px) {
+  .rb-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rb-modal {
+    padding: 18px;
+  }
+
+  .rb-time-inputs {
+    grid-template-columns: 1fr;
+  }
+}
