@@ -14,7 +14,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Halaman Terproteksi */}
+        {/* Halaman Terproteksii */}
         <Route element={<MainLayout />}>
           {/* HALAMAN ADMIN */}
           <Route path="/admin/dashboard" element={<Dashboard />} />
