@@ -6,7 +6,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
-  // State statistik & aktivitas (diisi default data dummy agar langsung tampil rapi)
+  // State statistik & aktivitas
   const [stats, setStats] = useState({
     totalBuku: 1240,
     totalAnggota: 385,

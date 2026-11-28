@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './css/global.css'; // css global
+import './css/global.css'; // css global untuk seluruh aplikasi
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 

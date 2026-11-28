@@ -47,7 +47,7 @@ export default function AuthVisualPanel({ title, subtitle }) {
             <rect x="194" y="110" width="14" height="4" rx="2" fill="#D8C5A4" />
           </g>
 
-          {/* Kartu Katalog / Lencana Digital */}
+          {/* Kartu Katalog */}
           <rect x="228" y="64" width="68" height="50" rx="10" fill="#F6F3ED" />
           <rect x="238" y="76" width="28" height="5" rx="2.5" fill="#7D8D6A" />
           <rect x="238" y="86" width="46" height="4" rx="2" fill="#D8C5A4" />

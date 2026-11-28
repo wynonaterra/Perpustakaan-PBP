@@ -83,7 +83,7 @@
   font-size: 24px;
 }
 
-/* Variasi Warna Ikon Statistik sesuai 5 Palet */
+/* Variasi Warna Ikon Statistik */
 .stat-icon.olive { background-color: var(--color-olive-soft); color: var(--color-olive-dark); }
 .stat-icon.ocean { background-color: var(--color-ocean-soft); color: #3F6077; }
 .stat-icon.sand  { background-color: var(--color-sand-soft); color: var(--color-walnut); }

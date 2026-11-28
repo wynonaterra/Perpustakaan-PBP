@@ -68,7 +68,7 @@ export default function Register() {
         navigate('/login');
       }, 1500);
     } catch (err) {
-      setErrorMsg(err.message || 'Gagal terhubung ke server backend.');
+      setErrorMsg(err.message || 'Gagal terhubung ke server.');
     } finally {
       setLoading(false);
     }

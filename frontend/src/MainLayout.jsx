@@ -34,7 +34,7 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Ambil data user dari localStorage (sesuaikan key dengan saat login)
+  // Ambil data user dari localStorage
   const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
   const role = storedUser.role || 'anggota'; // 'admin' atau 'anggota'
   const namaLengkap = storedUser.nama_lengkap || (role === 'admin' ? 'Administrator' : 'Anggota Perpus');

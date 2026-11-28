@@ -3,7 +3,6 @@ import MainLayout from './MainLayout';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import Dashboard from './components/dashboard/Dashboard';
-// Pastikan file Catalog.js sudah ada atau buat komponen placeholder sementara
 
 function App() {
   return (
