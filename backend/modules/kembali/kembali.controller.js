@@ -1,53 +1,154 @@
 const kembaliModel = require('./kembali.model');
 
+
+// =========================================================
+// GET RIWAYAT PENGEMBALIAN
+// =========================================================
 const getPengembalian = async (req, res, next) => {
     try {
-        // Jika role anggota, filter hanya pengembalian miliknya sendiri
-        const idAnggota = req.user.peran === 'anggota' ? req.user.id_anggota : null;
-        const data = await kembaliModel.getAllPengembalian(idAnggota);
-        res.json({ data });
+
+        const role = req.user?.peran;
+
+        // Admin melihat semua.
+        // Anggota hanya melihat miliknya sendiri.
+        const idPengguna =
+            role === 'anggota'
+                ? req.user.id_pengguna
+                : null;
+
+        const data =
+            await kembaliModel.getAllPengembalian(
+                idPengguna
+            );
+
+        res.status(200).json({
+            success: true,
+            data
+        });
+
     } catch (err) {
         next(err);
     }
 };
 
+
+// =========================================================
+// GET PEMINJAMAN YANG BELUM DIKEMBALIKAN
+// KHUSUS ADMIN
+// =========================================================
 const getPendingReturns = async (req, res, next) => {
     try {
-        const data = await kembaliModel.getActiveBorrowedDetails();
-        res.json({ data });
+
+        const data =
+            await kembaliModel.getActiveBorrowedDetails();
+
+        res.status(200).json({
+            success: true,
+            data
+        });
+
     } catch (err) {
         next(err);
     }
 };
 
+
+// =========================================================
+// PROSES PENGEMBALIAN
+// KHUSUS ADMIN
+// =========================================================
 const storePengembalian = async (req, res, next) => {
     try {
-        const { id_detail_peminjaman, kondisi_buku, catatan } = req.body;
 
-        if (!id_detail_peminjaman || !kondisi_buku) {
-            return res.status(400).json({ message: 'Item peminjaman dan kondisi buku wajib diisi.' });
-        }
-
-        const allowedKondisi = ['baik', 'rusak', 'hilang'];
-        if (!allowedKondisi.includes(kondisi_buku)) {
-            return res.status(400).json({ message: 'Kondisi buku harus baik, rusak, atau hilang.' });
-        }
-
-        const result = await kembaliModel.createPengembalian({
+        const {
             id_detail_peminjaman,
             kondisi_buku,
-            catatan,
-        });
+            catatan
+        } = req.body;
+
+
+        // -----------------------------------------------------
+        // VALIDASI ID DETAIL
+        // -----------------------------------------------------
+        if (
+            !id_detail_peminjaman ||
+            !Number.isInteger(
+                Number(id_detail_peminjaman)
+            )
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'ID detail peminjaman wajib diisi dan harus valid.'
+            });
+        }
+
+
+        // -----------------------------------------------------
+        // VALIDASI KONDISI
+        // -----------------------------------------------------
+        const allowedKondisi = [
+            'baik',
+            'rusak',
+            'hilang'
+        ];
+
+        if (
+            !allowedKondisi.includes(kondisi_buku)
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Kondisi buku harus baik, rusak, atau hilang.'
+            });
+        }
+
+
+        // -----------------------------------------------------
+        // PROSES
+        // -----------------------------------------------------
+        const result =
+            await kembaliModel.createPengembalian({
+                id_detail_peminjaman:
+                    Number(id_detail_peminjaman),
+
+                kondisi_buku,
+
+                catatan
+            });
+
+
+        // -----------------------------------------------------
+        // RESPONSE
+        // -----------------------------------------------------
+        let message =
+            'Pengembalian berhasil dicatat tanpa denda.';
+
+        if (result.denda) {
+
+            message =
+                `Pengembalian berhasil dicatat. ` +
+                `Terdeteksi denda sebesar Rp ` +
+                `${Number(
+                    result.denda.jumlah_denda
+                ).toLocaleString('id-ID')}.`;
+        }
+
 
         res.status(201).json({
-            message: result.denda
-                ? `Pengembalian berhasil dicatat. Terdeteksi denda sebesar Rp ${Number(result.denda.jumlah_denda).toLocaleString('id-ID')}.`
-                : 'Pengembalian berhasil dicatat tanpa denda.',
-            data: result,
+            success: true,
+            message,
+            data: result
         });
+
     } catch (err) {
         next(err);
     }
 };
 
-module.exports = { getPengembalian, getPendingReturns, storePengembalian };
+
+module.exports = {
+    getPengembalian,
+    getPendingReturns,
+    storePengembalian
+};

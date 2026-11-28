@@ -8,7 +8,7 @@ const getDashboardStats = async (req, res, next) => {
       pool.query("SELECT COUNT(*) AS total FROM peminjaman WHERE status = 'dipinjam'"),
       pool.query('SELECT COUNT(*) AS total FROM pengembalian'),
       pool.query(`
-        SELECT p.id_peminjaman, u.nama AS nama_anggota, p.jenis_peminjaman, p.tanggal_peminjaman, p.status
+        SELECT p.id_peminjaman, u.nama AS nama_anggota, p.tanggal_peminjaman, p.status
         FROM peminjaman p
         JOIN pengguna u ON p.id_pengguna = u.id_pengguna
         ORDER BY p.tanggal_peminjaman DESC

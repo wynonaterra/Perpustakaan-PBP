@@ -2,6 +2,17 @@ const pool = require("../../config/database");
 
 const BATAS_HARI_PINJAM = 7;
 
+const STATUS_TRANSISI = {
+    menunggu: ["disetujui", "ditolak", "dibatalkan"],
+    disetujui: ["siap_diambil", "dibatalkan"],
+    siap_diambil: ["dipinjam", "kedaluwarsa", "dibatalkan"],
+    dipinjam: ["selesai"],
+    ditolak: [],
+    dibatalkan: [],
+    kedaluwarsa: [],
+    selesai: [],
+};
+
 // =========================================================
 // GET SEMUA PEMINJAMAN
 // =========================================================
@@ -10,9 +21,8 @@ const getAllPeminjaman = async () => {
         SELECT
             p.id_peminjaman,
             p.id_pengguna,
-            u.nama AS nama_pengguna,
-            u.email,
-            p.jenis_peminjaman,
+            u.nomor_anggota,
+            u.nama AS nama_anggota,
             p.tanggal_peminjaman,
             p.waktu_pengambilan,
             p.batas_pengambilan,
@@ -22,38 +32,39 @@ const getAllPeminjaman = async () => {
 
             COALESCE(
                 json_agg(
-                    json_build_object(
+                    DISTINCT jsonb_build_object(
                         'id_detail_peminjaman', dp.id_detail_peminjaman,
                         'id_eksemplar', eb.id_eksemplar,
                         'id_buku', b.id_buku,
                         'judul', b.judul,
-                        'penulis', b.penulis
+                        'penulis', b.penulis,
+                        'nomor_urut', eb.nomor_urut,
+                        'status_eksemplar', eb.status,
+                        'jumlah', 1
                     )
-                    ORDER BY dp.id_detail_peminjaman
                 ) FILTER (WHERE dp.id_detail_peminjaman IS NOT NULL),
                 '[]'
-            ) AS detail_buku
+            ) AS daftar_buku
 
         FROM peminjaman p
 
         JOIN pengguna u
-            ON p.id_pengguna = u.id_pengguna
+            ON u.id_pengguna = p.id_pengguna
 
         LEFT JOIN detail_peminjaman dp
-            ON p.id_peminjaman = dp.id_peminjaman
+            ON dp.id_peminjaman = p.id_peminjaman
 
         LEFT JOIN eksemplar_buku eb
-            ON dp.id_eksemplar = eb.id_eksemplar
+            ON eb.id_eksemplar = dp.id_eksemplar
 
         LEFT JOIN buku b
-            ON eb.id_buku = b.id_buku
+            ON b.id_buku = eb.id_buku
 
         GROUP BY
             p.id_peminjaman,
             p.id_pengguna,
+            u.nomor_anggota,
             u.nama,
-            u.email,
-            p.jenis_peminjaman,
             p.tanggal_peminjaman,
             p.waktu_pengambilan,
             p.batas_pengambilan,
@@ -67,18 +78,18 @@ const getAllPeminjaman = async () => {
     return result.rows;
 };
 
-
 // =========================================================
 // GET PEMINJAMAN BERDASARKAN ID
 // =========================================================
-const getPeminjamanById = async (id) => {
-    const result = await pool.query(`
+const getPeminjamanById = async (idPeminjaman) => {
+    const result = await pool.query(
+        `
         SELECT
             p.id_peminjaman,
             p.id_pengguna,
-            u.nama AS nama_pengguna,
+            u.nomor_anggota,
+            u.nama AS nama_anggota,
             u.email,
-            p.jenis_peminjaman,
             p.tanggal_peminjaman,
             p.waktu_pengambilan,
             p.batas_pengambilan,
@@ -88,63 +99,66 @@ const getPeminjamanById = async (id) => {
 
             COALESCE(
                 json_agg(
-                    json_build_object(
+                    DISTINCT jsonb_build_object(
                         'id_detail_peminjaman', dp.id_detail_peminjaman,
                         'id_eksemplar', eb.id_eksemplar,
                         'id_buku', b.id_buku,
                         'judul', b.judul,
-                        'penulis', b.penulis
+                        'penulis', b.penulis,
+                        'nomor_urut', eb.nomor_urut,
+                        'status_eksemplar', eb.status,
+                        'jumlah', 1
                     )
-                    ORDER BY dp.id_detail_peminjaman
                 ) FILTER (WHERE dp.id_detail_peminjaman IS NOT NULL),
                 '[]'
-            ) AS detail_buku
+            ) AS daftar_buku
 
         FROM peminjaman p
 
         JOIN pengguna u
-            ON p.id_pengguna = u.id_pengguna
+            ON u.id_pengguna = p.id_pengguna
 
         LEFT JOIN detail_peminjaman dp
-            ON p.id_peminjaman = dp.id_peminjaman
+            ON dp.id_peminjaman = p.id_peminjaman
 
         LEFT JOIN eksemplar_buku eb
-            ON dp.id_eksemplar = eb.id_eksemplar
+            ON eb.id_eksemplar = dp.id_eksemplar
 
         LEFT JOIN buku b
-            ON eb.id_buku = b.id_buku
+            ON b.id_buku = eb.id_buku
 
         WHERE p.id_peminjaman = $1
 
         GROUP BY
             p.id_peminjaman,
             p.id_pengguna,
+            u.nomor_anggota,
             u.nama,
             u.email,
-            p.jenis_peminjaman,
             p.tanggal_peminjaman,
             p.waktu_pengambilan,
             p.batas_pengambilan,
             p.tanggal_jatuh_tempo,
             p.status,
             p.catatan
-    `, [id]);
+        `,
+        [idPeminjaman]
+    );
 
-    return result.rows[0];
+    return result.rows[0] || null;
 };
 
-
 // =========================================================
-// GET PEMINJAMAN MILIK USER TERTENTU
+// GET PEMINJAMAN MILIK USER
 // =========================================================
 const getPeminjamanByUser = async (idPengguna) => {
-    const result = await pool.query(`
+    const result = await pool.query(
+        `
         SELECT
             p.id_peminjaman,
             p.id_pengguna,
-            u.nama AS nama_pengguna,
-            u.email,
-            p.jenis_peminjaman,
+            u.nomor_anggota,
+            u.nama AS nama_anggota,
             p.tanggal_peminjaman,
             p.waktu_pengambilan,
             p.batas_pengambilan,
@@ -154,40 +168,41 @@ const getPeminjamanByUser = async (idPengguna) => {
 
             COALESCE(
                 json_agg(
-                    json_build_object(
+                    DISTINCT jsonb_build_object(
                         'id_detail_peminjaman', dp.id_detail_peminjaman,
                         'id_eksemplar', eb.id_eksemplar,
                         'id_buku', b.id_buku,
                         'judul', b.judul,
-                        'penulis', b.penulis
+                        'penulis', b.penulis,
+                        'nomor_urut', eb.nomor_urut,
+                        'status_eksemplar', eb.status,
+                        'jumlah', 1
                     )
-                    ORDER BY dp.id_detail_peminjaman
                 ) FILTER (WHERE dp.id_detail_peminjaman IS NOT NULL),
                 '[]'
-            ) AS detail_buku
+            ) AS daftar_buku
 
         FROM peminjaman p
 
         JOIN pengguna u
-            ON p.id_pengguna = u.id_pengguna
+            ON u.id_pengguna = p.id_pengguna
 
         LEFT JOIN detail_peminjaman dp
-            ON p.id_peminjaman = dp.id_peminjaman
+            ON dp.id_peminjaman = p.id_peminjaman
 
         LEFT JOIN eksemplar_buku eb
-            ON dp.id_eksemplar = eb.id_eksemplar
+            ON eb.id_eksemplar = dp.id_eksemplar
 
         LEFT JOIN buku b
-            ON eb.id_buku = b.id_buku
+            ON b.id_buku = eb.id_buku
 
         WHERE p.id_pengguna = $1
 
         GROUP BY
             p.id_peminjaman,
             p.id_pengguna,
+            u.nomor_anggota,
             u.nama,
-            u.email,
-            p.jenis_peminjaman,
             p.tanggal_peminjaman,
             p.waktu_pengambilan,
             p.batas_pengambilan,
@@ -196,93 +211,116 @@ const getPeminjamanByUser = async (idPengguna) => {
             p.catatan
 
         ORDER BY p.id_peminjaman DESC
-    `, [idPengguna]);
+        `,
+        [idPengguna]
+    );
 
     return result.rows;
 };
-
 
 // =========================================================
 // CREATE PEMINJAMAN
 // =========================================================
 const createPeminjaman = async ({
     idPengguna,
-    jenisPeminjaman = "online",
+    daftarBuku,
     catatan,
-    daftarBuku
 }) => {
-
     const client = await pool.connect();
 
     try {
         await client.query("BEGIN");
 
         // -------------------------------------------------
-        // 1. CEK PENGGUNA
+        // Validasi user
         // -------------------------------------------------
-        const penggunaResult = await client.query(`
+        const userResult = await client.query(
+            `
             SELECT
                 id_pengguna,
-                status,
-                peran
+                peran,
+                status
             FROM pengguna
             WHERE id_pengguna = $1
             FOR UPDATE
-        `, [idPengguna]);
+            `,
+            [idPengguna]
+        );
 
-        if (penggunaResult.rows.length === 0) {
+        if (userResult.rows.length === 0) {
             throw new Error("Pengguna tidak ditemukan.");
         }
 
-        const pengguna = penggunaResult.rows[0];
+        const user = userResult.rows[0];
 
-        if (pengguna.status !== "aktif") {
-            throw new Error(
-                "Pengguna tidak aktif dan tidak dapat melakukan peminjaman."
-            );
-        }
-
-        if (pengguna.peran !== "anggota") {
+        if (user.peran !== "anggota") {
             throw new Error(
                 "Hanya anggota yang dapat membuat peminjaman."
             );
         }
 
-        // -------------------------------------------------
-        // 2. VALIDASI JENIS PEMINJAMAN
-        // -------------------------------------------------
-        if (!["online", "offline"].includes(jenisPeminjaman)) {
+        if (user.status !== "aktif") {
             throw new Error(
-                "Jenis peminjaman harus online atau offline."
+                "Akun anggota tidak aktif."
             );
         }
 
         // -------------------------------------------------
-        // 3. VALIDASI DAFTAR BUKU
+        // Validasi daftar buku
         // -------------------------------------------------
-        if (!Array.isArray(daftarBuku) || daftarBuku.length === 0) {
-            throw new Error("Minimal satu buku harus dipilih.");
+        if (
+            !Array.isArray(daftarBuku) ||
+            daftarBuku.length === 0
+        ) {
+            throw new Error(
+                "Minimal satu buku harus dipilih."
+            );
+        }
+
+        // Normalisasi format:
+        // [
+        //   { id_buku: 1, jumlah: 1 },
+        //   { id_buku: 2, jumlah: 2 }
+        // ]
+        const daftarNormal = daftarBuku.map((item) => ({
+            id_buku: Number(item.id_buku),
+            jumlah: Number(item.jumlah),
+        }));
+
+        for (const item of daftarNormal) {
+            if (
+                !Number.isInteger(item.id_buku) ||
+                !Number.isInteger(item.jumlah) ||
+                item.jumlah <= 0
+            ) {
+                throw new Error(
+                    "id_buku dan jumlah harus berupa angka yang valid."
+                );
+            }
         }
 
         // -------------------------------------------------
-        // 4. NORMALISASI DAN VALIDASI ID BUKU
+        // Tidak boleh ada buku yang sama dalam satu transaksi
         // -------------------------------------------------
-        const idBukuList = daftarBuku.map(
-            item => Number(item.id_buku)
+        const idBukuSet = new Set(
+            daftarNormal.map((item) => item.id_buku)
         );
 
-        const uniqueIdBuku = [...new Set(idBukuList)];
-
-        if (uniqueIdBuku.length !== idBukuList.length) {
+        if (idBukuSet.size !== daftarNormal.length) {
             throw new Error(
-                "Buku yang sama tidak boleh dimasukkan dua kali."
+                "Buku yang sama tidak boleh dimasukkan lebih dari satu kali."
             );
         }
 
         // -------------------------------------------------
-        // 5. LOCK BUKU
+        // Lock data buku
         // -------------------------------------------------
-        const bukuResult = await client.query(`
+        const idBukuArray = daftarNormal.map(
+            (item) => item.id_buku
+        );
+
+        const bukuResult = await client.query(
+            `
             SELECT
                 id_buku,
                 judul,
@@ -291,100 +329,38 @@ const createPeminjaman = async ({
             FROM buku
             WHERE id_buku = ANY($1::int[])
             FOR UPDATE
-        `, [uniqueIdBuku]);
+            `,
+            [idBukuArray]
+        );
 
-        if (bukuResult.rows.length !== uniqueIdBuku.length) {
+        if (
+            bukuResult.rows.length !== idBukuArray.length
+        ) {
             throw new Error(
-                "Ada buku yang tidak ditemukan."
+                "Salah satu buku tidak ditemukan."
             );
         }
 
         const bukuMap = new Map();
 
-        bukuResult.rows.forEach(buku => {
-            bukuMap.set(Number(buku.id_buku), buku);
+        bukuResult.rows.forEach((buku) => {
+            bukuMap.set(buku.id_buku, buku);
         });
 
         // -------------------------------------------------
-        // 6. VALIDASI JUMLAH DAN STOK
+        // Validasi stok dan eksemplar
         // -------------------------------------------------
-        for (const item of daftarBuku) {
+        for (const item of daftarNormal) {
+            const buku = bukuMap.get(item.id_buku);
 
-            const idBuku = Number(item.id_buku);
-            const jumlah = Number(item.jumlah);
-
-            if (
-                !Number.isInteger(idBuku) ||
-                idBuku <= 0
-            ) {
+            if (buku.stok_tersedia < item.jumlah) {
                 throw new Error(
-                    "ID buku tidak valid."
+                    `Stok buku "${buku.judul}" tidak mencukupi.`
                 );
             }
 
-            if (
-                !Number.isInteger(jumlah) ||
-                jumlah <= 0
-            ) {
-                throw new Error(
-                    `Jumlah buku untuk ID ${idBuku} harus lebih dari 0.`
-                );
-            }
-
-            const buku = bukuMap.get(idBuku);
-
-            if (!buku) {
-                throw new Error(
-                    `Buku dengan ID ${idBuku} tidak ditemukan.`
-                );
-            }
-
-            if (Number(buku.stok_tersedia) < jumlah) {
-                throw new Error(
-                    `Stok buku "${buku.judul}" tidak mencukupi. ` +
-                    `Stok tersedia: ${buku.stok_tersedia}.`
-                );
-            }
-        }
-
-        // -------------------------------------------------
-        // 7. BUAT PEMINJAMAN
-        // -------------------------------------------------
-        const peminjamanResult = await client.query(`
-            INSERT INTO peminjaman (
-                id_pengguna,
-                jenis_peminjaman,
-                tanggal_peminjaman,
-                tanggal_jatuh_tempo,
-                status,
-                catatan
-            )
-            VALUES (
-                $1,
-                $2,
-                CURRENT_TIMESTAMP,
-                CURRENT_DATE + INTERVAL '${BATAS_HARI_PINJAM} days',
-                'menunggu',
-                $3
-            )
-            RETURNING *
-        `, [
-            idPengguna,
-            jenisPeminjaman,
-            catatan || null
-        ]);
-
-        const peminjaman = peminjamanResult.rows[0];
-
-        // -------------------------------------------------
-        // 8. AMBIL EKSEMPLAR TERSEDIA
-        // -------------------------------------------------
-        for (const item of daftarBuku) {
-
-            const idBuku = Number(item.id_buku);
-            const jumlah = Number(item.jumlah);
-
-            const eksemplarResult = await client.query(`
+            const exemplarResult = await client.query(
+                `
                 SELECT
                     id_eksemplar,
                     id_buku,
@@ -393,297 +369,453 @@ const createPeminjaman = async ({
                 FROM eksemplar_buku
                 WHERE id_buku = $1
                   AND status = 'tersedia'
-                ORDER BY nomor_urut
+                ORDER BY nomor_urut ASC
                 LIMIT $2
                 FOR UPDATE
-            `, [
-                idBuku,
-                jumlah
-            ]);
+                `,
+                [item.id_buku, item.jumlah]
+            );
 
-            if (eksemplarResult.rows.length !== jumlah) {
+            if (
+                exemplarResult.rows.length < item.jumlah
+            ) {
                 throw new Error(
-                    `Eksemplar buku dengan ID ${idBuku} ` +
-                    `yang tersedia tidak mencukupi.`
+                    `Eksemplar buku "${buku.judul}" yang tersedia tidak mencukupi.`
                 );
             }
+        }
 
-            // -------------------------------------------------
-            // 9. INSERT DETAIL PEMINJAMAN
-            // -------------------------------------------------
-            for (const eksemplar of eksemplarResult.rows) {
+        // -------------------------------------------------
+        // Buat data peminjaman
+        // -------------------------------------------------
+        const pinjamResult = await client.query(
+            `
+            INSERT INTO peminjaman (
+                id_pengguna,
+                tanggal_peminjaman,
+                waktu_pengambilan,
+                batas_pengambilan,
+                tanggal_jatuh_tempo,
+                status,
+                catatan
+            )
+            VALUES (
+                $1,
+                CURRENT_TIMESTAMP,
+                NULL,
+                NULL,
+                NULL,
+                'menunggu',
+                $2::TEXT
+            )
+            RETURNING id_peminjaman
+            `,
+            [
+                idPengguna,
+                catatan || null,
+            ]
+        );
 
-                await client.query(`
+        const idPeminjaman =
+            pinjamResult.rows[0].id_peminjaman;
+
+        // -------------------------------------------------
+        // Simpan detail + reservasi eksemplar
+        // -------------------------------------------------
+        for (const item of daftarNormal) {
+            const exemplarResult = await client.query(
+                `
+                SELECT
+                    id_eksemplar,
+                    id_buku,
+                    nomor_urut
+                FROM eksemplar_buku
+                WHERE id_buku = $1
+                  AND status = 'tersedia'
+                ORDER BY nomor_urut ASC
+                LIMIT $2
+                FOR UPDATE
+                `,
+                [item.id_buku, item.jumlah]
+            );
+
+            for (const exemplar of exemplarResult.rows) {
+                await client.query(
+                    `
                     INSERT INTO detail_peminjaman (
                         id_peminjaman,
                         id_eksemplar
                     )
                     VALUES ($1, $2)
-                `, [
-                    peminjaman.id_peminjaman,
-                    eksemplar.id_eksemplar
-                ]);
+                    `,
+                    [
+                        idPeminjaman,
+                        exemplar.id_eksemplar,
+                    ]
+                );
 
-                // -------------------------------------------------
-                // 10. UBAH STATUS EKSEMPLAR
-                // -------------------------------------------------
-                await client.query(`
+                // Eksemplar langsung dipesan
+                await client.query(
+                    `
                     UPDATE eksemplar_buku
-                    SET status = 'dipinjam'
+                    SET status = 'dipesan'
                     WHERE id_eksemplar = $1
-                `, [
-                    eksemplar.id_eksemplar
-                ]);
+                    `,
+                    [exemplar.id_eksemplar]
+                );
             }
 
-            // -------------------------------------------------
-            // 11. KURANGI STOK BUKU
-            // -------------------------------------------------
-            await client.query(`
+            // Stok berkurang karena eksemplar sudah dicadangkan
+            await client.query(
+                `
                 UPDATE buku
                 SET stok_tersedia = stok_tersedia - $1
                 WHERE id_buku = $2
-            `, [
-                jumlah,
-                idBuku
-            ]);
+                `,
+                [
+                    item.jumlah,
+                    item.id_buku,
+                ]
+            );
         }
 
-        // -------------------------------------------------
-        // 12. COMMIT
-        // -------------------------------------------------
         await client.query("COMMIT");
 
-        // Ambil data terbaru menggunakan connection pool
         return await getPeminjamanById(
-            peminjaman.id_peminjaman
+            idPeminjaman
         );
 
     } catch (error) {
-
         await client.query("ROLLBACK");
-
         throw error;
-
     } finally {
-
         client.release();
     }
 };
 
+// =========================================================
+// RELEASE EKSEMPLAR
+// =========================================================
+const releaseExemplars = async (
+    client,
+    idPeminjaman
+) => {
+    const result = await client.query(
+        `
+        SELECT
+            eb.id_eksemplar,
+            eb.id_buku,
+            eb.status
+        FROM detail_peminjaman dp
+        JOIN eksemplar_buku eb
+            ON eb.id_eksemplar = dp.id_eksemplar
+        WHERE dp.id_peminjaman = $1
+        FOR UPDATE OF eb
+        `,
+        [idPeminjaman]
+    );
+
+    const jumlahPerBuku = {};
+
+    for (const exemplar of result.rows) {
+        if (
+            exemplar.status !== "dipesan" &&
+            exemplar.status !== "dipinjam"
+        ) {
+            continue;
+        }
+
+        await client.query(
+            `
+            UPDATE eksemplar_buku
+            SET status = 'tersedia'
+            WHERE id_eksemplar = $1
+            `,
+            [exemplar.id_eksemplar]
+        );
+
+        if (!jumlahPerBuku[exemplar.id_buku]) {
+            jumlahPerBuku[exemplar.id_buku] = 0;
+        }
+
+        jumlahPerBuku[exemplar.id_buku]++;
+    }
+
+    // Kembalikan stok
+    for (const [idBuku, jumlah] of Object.entries(
+        jumlahPerBuku
+    )) {
+        await client.query(
+            `
+            UPDATE buku
+            SET stok_tersedia = LEAST(
+                stok_total,
+                stok_tersedia + $1
+            )
+            WHERE id_buku = $2
+            `,
+            [
+                jumlah,
+                Number(idBuku),
+            ]
+        );
+    }
+};
 
 // =========================================================
-// UPDATE PEMINJAMAN
+// UPDATE PEMINJAMAN / PERUBAHAN STATUS
 // =========================================================
 const updatePeminjaman = async (
-    id,
+    idPeminjaman,
     {
         status,
         catatan,
-        batasPengambilan
+        batasPengambilan,
     }
 ) => {
-
     const client = await pool.connect();
 
     try {
-
         await client.query("BEGIN");
 
         // -------------------------------------------------
-        // 1. AMBIL PEMINJAMAN
+        // Lock peminjaman
         // -------------------------------------------------
-        const currentResult = await client.query(`
+        const currentResult = await client.query(
+            `
             SELECT *
             FROM peminjaman
             WHERE id_peminjaman = $1
             FOR UPDATE
-        `, [id]);
+            `,
+            [idPeminjaman]
+        );
 
         if (currentResult.rows.length === 0) {
             throw new Error(
-                "Peminjaman tidak ditemukan."
+                "Data peminjaman tidak ditemukan."
             );
         }
 
         const current = currentResult.rows[0];
 
-        // -------------------------------------------------
-        // 2. STATUS YANG DIIZINKAN
-        // -------------------------------------------------
-        const allowedStatus = [
-            "menunggu",
-            "disetujui",
-            "siap_diambil",
-            "dipinjam",
-            "ditolak",
-            "dibatalkan",
-            "kedaluwarsa",
-            "selesai"
-        ];
-
-        if (
-            status !== undefined &&
-            status !== null &&
-            !allowedStatus.includes(status)
-        ) {
+        if (!status) {
             throw new Error(
-                "Status peminjaman tidak valid."
+                "Status peminjaman wajib diisi."
             );
         }
 
-        // -------------------------------------------------
-        // 3. PEMINJAMAN SELESAI TIDAK BOLEH DIUBAH
-        // -------------------------------------------------
         if (
-            current.status === "selesai" &&
-            (
-                status !== undefined ||
-                catatan !== undefined ||
-                batasPengambilan !== undefined
+            !Object.prototype.hasOwnProperty.call(
+                STATUS_TRANSISI,
+                current.status
             )
         ) {
             throw new Error(
-                "Peminjaman yang sudah selesai tidak dapat diubah."
+                `Status peminjaman saat ini tidak valid: ${current.status}.`
+            );
+        }
+
+        if (
+            !STATUS_TRANSISI[current.status].includes(status)
+        ) {
+            throw new Error(
+                `Status tidak dapat diubah dari "${current.status}" menjadi "${status}".`
             );
         }
 
         // -------------------------------------------------
-        // 4. CEK PEMBATALAN
+        // Validasi eksemplar sebelum disetujui
         // -------------------------------------------------
-        if (
-            status === "dibatalkan" &&
-            current.status !== "dibatalkan" &&
-            current.status !== "selesai"
-        ) {
-
-            // ---------------------------------------------
-            // CEK APAKAH SUDAH ADA PENGEMBALIAN
-            // ---------------------------------------------
-            const returnCheck = await client.query(`
+        if (status === "disetujui") {
+            const detailResult = await client.query(
+                `
                 SELECT
-                    dp.id_detail_peminjaman
-                FROM detail_peminjaman dp
-                JOIN pengembalian pg
-                    ON dp.id_detail_peminjaman = pg.id_detail_peminjaman
-                WHERE dp.id_peminjaman = $1
-                LIMIT 1
-            `, [id]);
-
-            if (returnCheck.rows.length > 0) {
-                throw new Error(
-                    "Peminjaman yang sudah memiliki pengembalian " +
-                    "tidak dapat dibatalkan."
-                );
-            }
-
-            // ---------------------------------------------
-            // AMBIL EKSEMPLAR PEMINJAMAN
-            // ---------------------------------------------
-            const detailsResult = await client.query(`
-                SELECT
-                    dp.id_detail_peminjaman,
                     dp.id_eksemplar,
-                    eb.id_buku,
                     eb.status
                 FROM detail_peminjaman dp
                 JOIN eksemplar_buku eb
-                    ON dp.id_eksemplar = eb.id_eksemplar
+                    ON eb.id_eksemplar = dp.id_eksemplar
                 WHERE dp.id_peminjaman = $1
                 FOR UPDATE OF eb
-            `, [id]);
+                `,
+                [idPeminjaman]
+            );
 
-            // ---------------------------------------------
-            // KEMBALIKAN EKSEMPLAR
-            // ---------------------------------------------
-            const bukuJumlahMap = new Map();
-
-            for (const detail of detailsResult.rows) {
-
-                // Hanya eksemplar yang sedang dipinjam
-                // yang dikembalikan ke stok.
-                if (detail.status === "dipinjam") {
-
-                    await client.query(`
-                        UPDATE eksemplar_buku
-                        SET status = 'tersedia'
-                        WHERE id_eksemplar = $1
-                    `, [
-                        detail.id_eksemplar
-                    ]);
-
-                    const idBuku = Number(detail.id_buku);
-
-                    bukuJumlahMap.set(
-                        idBuku,
-                        (bukuJumlahMap.get(idBuku) || 0) + 1
-                    );
-                }
+            if (detailResult.rows.length === 0) {
+                throw new Error(
+                    "Peminjaman tidak memiliki detail buku."
+                );
             }
 
-            // ---------------------------------------------
-            // KEMBALIKAN STOK BUKU
-            // ---------------------------------------------
-            for (const [
-                idBuku,
-                jumlah
-            ] of bukuJumlahMap.entries()) {
+            const semuaDipesan =
+                detailResult.rows.every(
+                    (item) => item.status === "dipesan"
+                );
 
-                await client.query(`
-                    UPDATE buku
-                    SET stok_tersedia = stok_tersedia + $1
-                    WHERE id_buku = $2
-                `, [
-                    jumlah,
-                    idBuku
-                ]);
+            if (!semuaDipesan) {
+                throw new Error(
+                    "Eksemplar buku tidak lagi berstatus dipesan."
+                );
+            }
+
+            // Reservasi berubah menjadi dipinjam
+            // Stok TIDAK dikurangi lagi karena sudah
+            // dikurangi saat status dipesan.
+            await client.query(
+                `
+                UPDATE eksemplar_buku eb
+                SET status = 'dipinjam'
+                FROM detail_peminjaman dp
+                WHERE dp.id_peminjaman = $1
+                  AND dp.id_eksemplar = eb.id_eksemplar
+                  AND eb.status = 'dipesan'
+                `,
+                [idPeminjaman]
+            );
+        }
+
+        // -------------------------------------------------
+        // Validasi sebelum siap diambil
+        // -------------------------------------------------
+        if (status === "siap_diambil") {
+            const detailResult = await client.query(
+                `
+                SELECT
+                    eb.id_eksemplar,
+                    eb.status
+                FROM detail_peminjaman dp
+                JOIN eksemplar_buku eb
+                    ON eb.id_eksemplar = dp.id_eksemplar
+                WHERE dp.id_peminjaman = $1
+                FOR UPDATE OF eb
+                `,
+                [idPeminjaman]
+            );
+
+            if (detailResult.rows.length === 0) {
+                throw new Error(
+                    "Peminjaman tidak memiliki detail buku."
+                );
+            }
+
+            const semuaDipinjam =
+                detailResult.rows.every(
+                    (item) => item.status === "dipinjam"
+                );
+
+            if (!semuaDipinjam) {
+                throw new Error(
+                    "Eksemplar buku belum berada pada status dipinjam."
+                );
             }
         }
 
         // -------------------------------------------------
-        // 5. UPDATE DATA PEMINJAMAN
+        // Saat buku benar-benar diambil
         // -------------------------------------------------
-        const result = await client.query(`
-            UPDATE peminjaman
-            SET
-                status = COALESCE($1, status),
-                catatan = COALESCE($2, catatan),
-                batas_pengambilan = COALESCE($3, batas_pengambilan)
-            WHERE id_peminjaman = $4
-            RETURNING *
-        `, [
-            status !== undefined ? status : null,
-            catatan !== undefined ? catatan : null,
+        let tambahanQuery = "";
+        const tambahanParams = [];
+
+        if (status === "dipinjam") {
+            tambahanQuery += `,
+                waktu_pengambilan = CURRENT_TIMESTAMP,
+                tanggal_jatuh_tempo = CURRENT_DATE + $4::integer
+            `;
+
+            tambahanParams.push(BATAS_HARI_PINJAM);
+
+            const detailResult = await client.query(
+                `
+                SELECT
+                    eb.status
+                FROM detail_peminjaman dp
+                JOIN eksemplar_buku eb
+                    ON eb.id_eksemplar = dp.id_eksemplar
+                WHERE dp.id_peminjaman = $1
+                FOR UPDATE OF eb
+                `,
+                [idPeminjaman]
+            );
+
+            if (detailResult.rows.length === 0) {
+                throw new Error(
+                    "Peminjaman tidak memiliki detail buku."
+                );
+            }
+
+            const semuaDipinjam =
+                detailResult.rows.every(
+                    (item) => item.status === "dipinjam"
+                );
+
+            if (!semuaDipinjam) {
+                throw new Error(
+                    "Eksemplar buku belum siap untuk dipinjam."
+                );
+            }
+        }
+
+        // -------------------------------------------------
+        // Status ditolak / dibatalkan / kedaluwarsa
+        // -------------------------------------------------
+        if (
+            ["ditolak", "dibatalkan", "kedaluwarsa"].includes(
+                status
+            )
+        ) {
+            await releaseExemplars(
+                client,
+                idPeminjaman
+            );
+        }
+
+        // -------------------------------------------------
+        // Update data utama
+        // -------------------------------------------------
+        const updateParams = [
+            status,
+            catatan !== undefined
+                ? catatan
+                : current.catatan,
             batasPengambilan !== undefined
                 ? batasPengambilan
-                : null,
-            id
-        ]);
+                : current.batas_pengambilan,
+            ...tambahanParams,
+            idPeminjaman,
+        ];
+
+        const result = await client.query(
+            `
+            UPDATE peminjaman
+            SET
+                status = $1,
+                catatan = $2,
+                batas_pengambilan = $3
+                ${tambahanQuery}
+            WHERE id_peminjaman = $${updateParams.length}
+            RETURNING id_peminjaman
+            `,
+            updateParams
+        );
 
         await client.query("COMMIT");
 
-        return result.rows[0];
-
+        return await getPeminjamanById(
+            result.rows[0].id_peminjaman
+        );
     } catch (error) {
-
         await client.query("ROLLBACK");
-
         throw error;
-
     } finally {
-
         client.release();
     }
 };
 
-
-// =========================================================
-// EXPORT
-// =========================================================
 module.exports = {
     getAllPeminjaman,
     getPeminjamanById,
     getPeminjamanByUser,
     createPeminjaman,
-    updatePeminjaman
+    updatePeminjaman,
 };
