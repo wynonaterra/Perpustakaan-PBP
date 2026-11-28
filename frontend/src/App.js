@@ -1,24 +1,26 @@
-import logo from './logo.svg';
-import './App.css';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import MainLayout from './MainLayout';
+import Login from './components/auth/Login';
+import Register from './components/auth/Register';
+import Dashboard from './components/dashboard/Dashboard';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        {/* Halaman Publik (Full Screen Split Panel) */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* Halaman Terproteksi (Dengan Sidebar & Navbar Dinamis) */}
+        <Route element={<MainLayout />}>
+          <Route path="/admin/dashboard" element={<Dashboard />} />
+            {/* HALAMAN LAINNYA MASUKIN SINIIII */}
+        </Route>
+
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

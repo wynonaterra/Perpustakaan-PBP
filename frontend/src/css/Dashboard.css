@@ -1,0 +1,174 @@
+/* ==========================================================================
+   DASHBOARD ADMIN Menggunakan variabel dari global.css
+   ========================================================================== */
+
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Header Banner Selamat Datang */
+.dashboard-banner {
+  background: linear-gradient(135deg, var(--color-olive) 0%, var(--color-olive-dark) 100%);
+  color: #FFFFFF;
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.dashboard-banner h1 {
+  font-family: var(--font-serif);
+  color: #FFFFFF;
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+
+.dashboard-banner p {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 13.5px;
+}
+
+.banner-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-banner-light {
+  background-color: var(--color-white-stone);
+  color: var(--color-walnut);
+}
+.btn-banner-light:hover {
+  background-color: #FFFFFF;
+}
+
+/* Grid 4 Kartu Statistik */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.stat-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: transform 0.18s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-icon .material-symbols-outlined {
+  font-size: 24px;
+}
+
+/* Variasi Warna Ikon Statistik */
+.stat-icon.olive { background-color: var(--color-olive-soft); color: var(--color-olive-dark); }
+.stat-icon.ocean { background-color: var(--color-ocean-soft); color: #3F6077; }
+.stat-icon.sand  { background-color: var(--color-sand-soft); color: var(--color-walnut); }
+.stat-icon.danger { background-color: var(--color-danger-soft); color: var(--color-danger); }
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-walnut-muted);
+  margin-bottom: 2px;
+}
+
+.stat-value {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--color-walnut);
+  line-height: 1.1;
+}
+
+/* Grid Bagian Bawah (Tabel Sirkulasi & Jadwal Ruangan) */
+.dashboard-main-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  color: var(--color-walnut);
+}
+
+/* List Booking Ruangan Hari Ini */
+.room-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.room-item {
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-white-stone);
+  border: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.room-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.room-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-walnut);
+}
+
+.room-meta {
+  font-size: 12px;
+  color: var(--color-walnut-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
