@@ -135,7 +135,7 @@ export default function Dashboard() {
             <span className="material-symbols-outlined">group</span>
           </div>
           <div className="stat-info">
-            <span className="stat-label">Anggota Aktif</span>
+            <span className="stat-label">Total Anggota Aktif</span>
             <span className="stat-value">{stats.totalAnggota.toLocaleString('id-ID')}</span>
           </div>
         </div>

@@ -118,7 +118,7 @@ export default function Register() {
                 name="nama"
                 autoComplete="name"
                 className="form-control"
-                placeholder="Contoh: Elliana Octavia"
+                placeholder="Contoh: Mentari Cahya"
                 value={formData.nama}
                 onChange={handleChange}
                 required
@@ -134,7 +134,7 @@ export default function Register() {
                   name="email"
                   autoComplete="email"
                   className="form-control"
-                  placeholder="nama@email.com"
+                  placeholder="nama@student.uksw.edu"
                   value={formData.email}
                   onChange={handleChange}
                   required
@@ -164,7 +164,7 @@ export default function Register() {
                 name="alamat"
                 autoComplete="street-address"
                 className="form-control"
-                placeholder="Jl. Diponegoro No. 52, Salatiga"
+                placeholder="Jl. Bahagia No. 123, Kota Contoh"
                 value={formData.alamat}
                 onChange={handleChange}
               />
